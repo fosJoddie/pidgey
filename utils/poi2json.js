@@ -21,18 +21,25 @@ var args = process.argv.slice(2);
 args.forEach(function(el) {
     var records = parse(fs.readFileSync(el, 'utf8'));
     allpois=allpois.concat(records.map(function(rec) {
-	return [ rec[0], "portal", parseFloat(rec[1]), parseFloat(rec[2])];
+	return {
+        "name": rec[0],
+        "description": rec.length > 4 ? rec[4] : "",
+        "image": rec.length > 5 ? rec[5] : "",
+        "poitype": rec.length > 3 ? rec[3] : "portal",
+        "latitude": parseFloat(rec[1]), 
+        "longitude": parseFloat(rec[2])
+    };
     }));
 })
 
 allpois=allpois.filter(function(el) {
-    return ! ( el[0].length < 3 || isNaN(el[3]) || isNaN(el[3] ) )
+    return ! ( el.name.length < 3 || isNaN(el.latitude) || isNaN(el.longitude ) )
 })
 
 seen={};
 
 var poiid = function(el) {
-    return (el[0]+"/"+el[2]+"/"+el[3]);
+    return (el.name+"/"+el.latitude+"/"+el.longitude);
     // Use this instead if the coordinates are not exact:
     // return (el[0].trim()+"/"+Math.round(el[2]*10000) +"/"+Math.round(10000*el[3]));
 }

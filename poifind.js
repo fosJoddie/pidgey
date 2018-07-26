@@ -9,14 +9,14 @@ var matchName= function(name,poitype) {
     
     var re=new RegExp(name, 'i');
     return function(el) {
-        if(poitype && poitype!=el[1])  return false;
+        if(poitype && poitype!=el.poitype)  return false;
         if(!name) return false;
-        return re.test(el[0])
+        return re.test(el.name)
     }
 }
 
 var getByNumber=function(idx) {
-    return mapdata.filter(num => num[4]==idx);
+    return mapdata.filter(num => num.idx==idx);
 }
 
 var load = function(file) {
@@ -26,7 +26,7 @@ var load = function(file) {
     // Find all numbers which are part of names of pois
     var n, avoid={}, ptypes={};
     mapdata.forEach(el =>  {
-	if (n=el[0].match(/\d+/g)) {
+	if (n=el.name.match(/\d+/g)) {
 	    n.forEach(num => {
 		avoid[num]=true;
 	    })
@@ -36,10 +36,11 @@ var load = function(file) {
     // are part of poi-names
     var j, i=100;
     for(j=0;j<mapdata.length;j++) {
-	i++;
-	while(avoid[i] != undefined) i++;
-	mapdata[j][4]=i;
-	ptypes[mapdata[j][1]]=true;
+        i++;
+        while(avoid[i] != undefined) i++;
+        
+        mapdata[j].idx=i;
+        ptypes[mapdata[j].poitype]=true;
     }
     poitypes=Object.keys(ptypes);
 }
@@ -61,7 +62,7 @@ var singleMatch = function(mapres,name,poitype,returnExact = false) {
     if(returnExact) {
 	var exactMatches=[]
 	mapres.forEach(el =>  {
-	    if(name.toLowerCase()==el[0].trim().toLowerCase()) {
+	    if(name.toLowerCase()==el.name.trim().toLowerCase()) {
 		exactMatches.push(el);
 	    }
 	});
@@ -73,7 +74,7 @@ var singleMatch = function(mapres,name,poitype,returnExact = false) {
 var listResults = function(mapres) {
     var res = [];
     mapres.forEach(el => {
-	res.push("" + el[1]+": "+el[0] + " _"+el[4]+"_")
+	res.push("" + el.poitype+": "+el.name + " _"+el.idx+"_")
     });
     return res;
 }
@@ -83,11 +84,16 @@ var isPoiType = function(str) {
     return poitypes.includes(str);
 }
 
+var poiCount = function() {
+    return mapdata.length;
+}
+
 module.exports = {
     load: load,
     listResults: listResults,
     singleMatch:singleMatch,
     getByNumber:getByNumber,
     isPoiType:isPoiType,
-    find: find
+    find: find,
+    poiCount: poiCount
 }

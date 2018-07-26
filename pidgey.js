@@ -21,8 +21,8 @@ var writeLog = function(logfile, message) {
     if(config.logdir == null)  return;
     if(!fs.existsSync(config.logdir)) fs.mkdirSync(config.logdir);
     fs.appendFile(config.logdir  + "/" + logfile, 
-		  (new Date()).toISOString() + "\t" + message + "\n",
-		  function(err) {});
+          (new Date()).toISOString() + "\t" + message + "\n",
+          function(err) {});
 }
 
 client.on("message", async message => {
@@ -39,106 +39,116 @@ client.on("message", async message => {
     const isDirectMessage = ( message.guild === null );
 
     if(command===config.command) {
-	
-	let scope = "";
-	let clientMessage;
-	let matches = null, query, showHelp;
-	
-	// Shop up to 10 matches in chats, 250 hits in dm's
-	let maxHits = isDirectMessage ? MAX_HITS_DM  : MAX_HITS_CHANNEL;
+    
+    let scope = "";
+    let clientMessage;
+    let matches = null, query, showHelp;
+    
+    // Shop up to 10 matches in chats, 250 hits in dm's
+    let maxHits = isDirectMessage ? MAX_HITS_DM  : MAX_HITS_CHANNEL;
 
-	// If no arguments, or single argument pokestop|gym, show help text
-	if(!args[0]) 
-	    showHelp = true;
-	if(!showHelp && poifinder.isPoiType(args[0].toLowerCase())) {
-	    scope = args.shift().toLowerCase();
-	}
-	if(!args[0])
-	    showHelp = true;
+    // If no arguments, or single argument pokestop|gym, show help text
+    if(!args[0]) 
+        showHelp = true;
+    if(!showHelp && poifinder.isPoiType(args[0].toLowerCase())) {
+        scope = args.shift().toLowerCase();
+    }
+    if(!args[0])
+        showHelp = true;
 
-	if(!showHelp) {
-	    // If numeric query, return poi by number. This works
-	    // becase all numbers which are part of poi names are
-	    // are exclude.
-	    query = args.join(" ");
-	    if( /^[0-9]+$/.test(query)) {
-		matches = poifinder.getByNumber(query);
-	    }
-	    if(!matches || !matches.length) 
-		matches = poifinder.find(query, scope);
-	}
+    if(!showHelp) {
+        // If numeric query, return poi by number. This works
+        // becase all numbers which are part of poi names are
+        // are excluded.
+        query = args.join(" ");
+        if( /^[0-9]+$/.test(query)) {
+        matches = poifinder.getByNumber(query);
+        }
+        if(!matches || !matches.length) 
+        matches = poifinder.find(query, scope);
+    }
 
-	if(showHelp) {
+    if(showHelp) {
 
-	    const embed = new Discord.RichEmbed();
-	    embed.setTitle(config.description)
-		.setDescription(config.prefix + config.command + strings[config.language]["searchstring"]);
-	    clientMessage = {embed};
-	    
-	} else if(!matches || matches.length == 0) {
-	    
-	    clientMessage = strings[config.language]["nomatches"].replace('{term}',query);
-	    
-	} else if(singleMatch = poifinder.singleMatch(matches, query, scope)) {
-	    
-	    let coord=singleMatch[2]+"%2C"+singleMatch[3];
-	    let mapurl = 'https://maps.googleapis.com/maps/api/staticmap?size=512x512&zoom=15&scale=2&key=' + config.google_api_key;
-	    mapurl=mapurl + '&center='+coord;
-	    if(singleMatch['1']=='gym') 
-		mapurl=mapurl+"&markers=color:green%7Clabel:G%7C"+coord;
-	    else if(singleMatch['1']=='portal')
-		mapurl=mapurl+"&markers=color:blue%7Clabel:P%7C"+coord;
-	    else 
-		mapurl=mapurl+"&markers=color:red%7Clabel:S%7C"+coord;
-	    
-	    const embed = new Discord.RichEmbed();
-	    embed
-		.setTitle(singleMatch[0]+" (" + singleMatch[1] + ")")
-		.setImage(mapurl)
-		.setDescription("[OpenStreetMap](http://www.openstreetmap.org/?mlat="+ 
-				singleMatch[2] +"&mlon=" +
-				singleMatch[3] +"&zoom=15&layers=M)" + 
-				" / " + 
-				"[GoogleNav](https://www.google.com/maps/dir/?api=1&dir_action=travelmode=walking&navigate&destination="+
-				 coord + ")"
-			       );
-	    
-	    clientMessage = {embed};
-	    
-	} else if(matches.length <= maxHits) {
+        const embed = new Discord.RichEmbed();
+        embed.setTitle(config.description)
+        .setDescription(config.prefix + config.command + strings[config.language]["searchstring"]);
+        clientMessage = {embed};
+        
+    } else if(!matches || matches.length == 0) {
+        
+        clientMessage = strings[config.language]["nomatches"].replace('{term}',query);
+        
+    } else if(match = poifinder.singleMatch(matches, query, scope)) {
+        
+        let coord=match.latitude +"%2C"+match.longitude;
+        let mapurl = 'https://maps.googleapis.com/maps/api/staticmap?size=512x512&zoom=15&scale=2&key=' + config.google_api_key;
+        mapurl=mapurl + '&center='+coord;
+        if(match.poitype=='gym') 
+            mapurl=mapurl+"&markers=color:green%7Clabel:G%7C"+coord;
+        else if(match.poitype=='portal')
+            mapurl=mapurl+"&markers=color:blue%7Clabel:P%7C"+coord;
+        else 
+            mapurl=mapurl+"&markers=color:red%7Clabel:S%7C"+coord;
+        
+        const embed = new Discord.RichEmbed();
+        let description = "[OpenStreetMap](http://www.openstreetmap.org/?mlat=" +
+            match.latitude + "&mlon=" +
+            match.longitude + "&zoom=15&layers=M)" +
+            " / " +
+            "[Google Maps](https://www.google.com/maps/dir/?api=1&dir_action=travelmode=walking&navigate&destination=" +
+            coord + ")";
+        if(match.description.length > 0) {
+            description = match.description + "\n" + description;
+        }
+        embed
+        .setTitle(match.name+" (" + match.poitype + ")")
+        .setImage(mapurl)
+        .setDescription(description);
 
-	    clientMessage = strings[config.language]["selectmap"];
-	    clientMessage += "\n";
-	    clientMessage += poifinder.listResults(matches).join("\n");
-	    
-	    // Too long messages will be rejected by server
-	    if(clientMessage.length > MAX_MESSAGE_SIZE ) {
-		clientMessage =  strings[config.language]["toomany"].replace('{num}', matches.length);
-		clientMessage += strings[config.language]["refinequery"];
-	    }
-	    
-	    
-	} else { 
-	    
-	    clientMessage = strings[config.language]["toomany"].replace('{num}', matches.length);
-	    
-	    if (!isDirectMessage &&  matches.length <  MAX_HITS_DM) 
-		clientMessage += strings[config.language]["senddm"];
-	    else 
-		clientMessage += strings[config.language]["refinequery"];
-	}
+        if(match.image.length > 0) {
+            // Embed a thumbnail of the POI.
+            embed.setThumbnail(match.image)
+        }
+        
+        clientMessage = {embed};
+        
+    } else if(matches.length <= maxHits) {
 
-	message.channel.send(clientMessage)
-	    .then(function(msg) {
-		writeLog("searches.log",  " " + message.channel.name +": ["+ matches.length + "] " + message);
-	    }).catch(function(error) {
-		writeLog("error.log", "ERROR:  " + message.channel.name +":" + message);
-	    });
+        clientMessage = strings[config.language]["selectmap"];
+        clientMessage += "\n";
+        clientMessage += poifinder.listResults(matches).join("\n");
+        
+        // Too long messages will be rejected by server
+        if(clientMessage.length > MAX_MESSAGE_SIZE ) {
+        clientMessage =  strings[config.language]["toomany"].replace('{num}', matches.length);
+        clientMessage += strings[config.language]["refinequery"];
+        }
+        
+        
+    } else { 
+        
+        clientMessage = strings[config.language]["toomany"].replace('{num}', matches.length);
+        
+        if (!isDirectMessage &&  matches.length <  MAX_HITS_DM) 
+        clientMessage += strings[config.language]["senddm"];
+        else 
+        clientMessage += strings[config.language]["refinequery"];
+    }
+
+    message.channel.send(clientMessage)
+        .then(function(msg) {
+        writeLog("searches.log",  " " + message.channel.name +": ["+ matches.length + "] " + message);
+        }).catch(function(error) {
+        writeLog("error.log", "ERROR:  " + message.channel.name +":" + message);
+        });
     }
 });
 
 client.on("ready", () => {
-  client.user.setActivity(config.prefix + config.command);
+    // Only set activity if config says so (helps if Pidgey is runing together with other bots).
+    if(config.set_activity) client.user.setActivity(config.prefix + config.command);
+    console.log("Pidgey is ready and knows about " + poifinder.poiCount() + " interesting places");
 });
 
 client.on('error', (error) => {
